@@ -1,6 +1,34 @@
 syntax = "proto3";
 option go_package = "./todo";
 
-service Todo {
+import "google/protobuf/timestamp.proto";
 
+//messages land in *.pb.go as structs
+message Task {
+  uint64 id = 1;
+  string description = 2;
+  bool done = 3;
+  google.protobuf.Timestamp due_date = 4;
+}
+
+message AddTaskRequest {
+  string description = 1;
+  google.protobuf.Timestamp due_date = 2;
+}
+
+message AddTaskResponse {
+  uint64 id = 1;
+}
+
+message ListTasksRequest{}
+
+message ListTasksResponse {
+  Task task = 1;
+  bool overdue = 2;
+}
+
+//services land in *_grpc.pb.go as implementations of client and sever
+service TodoService {
+  rpc AddTask(AddTaskRequest) returns (AddTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (stream ListTasksResponse); //this is server streaming API example
 }

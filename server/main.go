@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"proto/gen/todo"
 	"server/api"
+	"server/db"
 	"syscall"
 )
 
@@ -32,8 +33,8 @@ func main() {
 	defer server.Stop()
 
 	//3. server.RegisterService() register implemented services here
-	todoAPI := api.NewTodoAPI()
-	todo.RegisterTodoServer(server, todoAPI)
+	todoAPI := api.NewTodoAPI(db.NewTodoDB())
+	todo.RegisterTodoServiceServer(server, todoAPI)
 
 	//4. Start the server (different goroutine to register shutdown hook below)
 	go func() {
