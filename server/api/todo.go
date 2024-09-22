@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io"
 	"log"
 	"proto/gen/todo"
 	"server/db"
@@ -38,7 +39,6 @@ func (t *TodoAPI) ListTasks(_ *todo.ListTasksRequest, server grpc.ServerStreamin
 		}); err != nil {
 			return err
 		}
-		time.Sleep(time.Second) //simulate some processing
 		return nil
 	})
 	if err != nil {
@@ -46,4 +46,24 @@ func (t *TodoAPI) ListTasks(_ *todo.ListTasksRequest, server grpc.ServerStreamin
 		return status.Error(codes.Internal, "error getting tasks")
 	}
 	return nil
+}
+
+func (t *TodoAPI) UpdateTask(server grpc.ClientStreamingServer[todo.UpdateTaskRequest, todo.UpdateTaskResponse]) error {
+	for { //now inf loop on server end to consume the client stream
+		rq, err := server.Recv()
+		if err == io.EOF { //until client sends half close
+			log.Println("client done")
+			return server.SendAndClose(&todo.UpdateTaskResponse{}) //once client done send rs and trailer
+		}
+		if err != nil {
+			log.Printf("stream closed unexpectedly: %v", err)
+			return err
+		}
+		err = t.db.UpdateTask(model.ID(rq.Task.Id), rq.Task.Description, rq.Task.DueDate.AsTime(), rq.Task.Done)
+		if err != nil {
+			log.Printf("error updating task: %v", err)
+			return status.Error(codes.Internal, "error updating task")
+		}
+		log.Printf("updated task with id: %d, description: %s, dueDate: %s, done: %v", rq.Task.Id, rq.Task.Description, rq.Task.DueDate.AsTime().String(), rq.Task.Done)
+	}
 }

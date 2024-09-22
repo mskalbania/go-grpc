@@ -27,8 +27,15 @@ message ListTasksResponse {
   bool overdue = 2;
 }
 
+message UpdateTaskRequest {
+  Task task = 1;
+}
+
+message UpdateTaskResponse {}
+
 //services land in *_grpc.pb.go as implementations of client and sever
 service TodoService {
   rpc AddTask(AddTaskRequest) returns (AddTaskResponse);
   rpc ListTasks(ListTasksRequest) returns (stream ListTasksResponse); //this is server streaming API example
+  rpc UpdateTask(stream UpdateTaskRequest) returns (UpdateTaskResponse); //this is client streaming API example
 }

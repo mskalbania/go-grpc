@@ -34,7 +34,7 @@ func main() {
 	todoClient := todo.NewTodoServiceClient(conn)
 
 	//3a. Call server - unary API example
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 3; i++ {
 		rs, err := todoClient.AddTask(context.Background(), &todo.AddTaskRequest{
 			Description: fmt.Sprintf("do smth %v", i),
 			DueDate:     timestamppb.New(time.Now().Add(time.Hour * 24)),
@@ -45,13 +45,14 @@ func main() {
 		log.Printf("added task with id: %d", rs.Id)
 	}
 
-	//3. Call sever - server streaming API example
-	streamingClient, err := todoClient.ListTasks(context.Background(), &todo.ListTasksRequest{})
+	//3b. Call sever - server streaming API example
+	var ids []uint64
+	serverStreaming, err := todoClient.ListTasks(context.Background(), &todo.ListTasksRequest{})
 	if err != nil {
 		log.Fatalf("error getting tasks: %v", err)
 	}
 	for { //inf loop until send trailer received from server
-		rs, err := streamingClient.Recv()
+		rs, err := serverStreaming.Recv()
 		if err == io.EOF {
 			log.Printf("server done")
 			break
@@ -59,6 +60,29 @@ func main() {
 		if err != nil {
 			log.Fatalf("error getting task: %v", err)
 		}
-		log.Printf("got task: %v", rs)
+		ids = append(ids, rs.Task.Id)
+		log.Printf("got task with id: %d, description: %s, dueDate: %s, overdue: %v", rs.Task.Id, rs.Task.Description, rs.Task.DueDate.AsTime().Format(time.StampMilli), rs.Overdue)
+	}
+
+	//3c. Call server - client streaming API example
+	clientStreaming, err := todoClient.UpdateTask(context.Background())
+	if err != nil {
+		log.Fatalf("error updating tasks: %v", err)
+	}
+	for _, id := range ids[1:] {
+		err := clientStreaming.Send(&todo.UpdateTaskRequest{
+			Task: &todo.Task{
+				Id:          id,
+				Description: "updated!!",
+				Done:        true,
+				DueDate:     timestamppb.New(time.Now()),
+			},
+		})
+		if err != nil {
+			log.Fatalf("error updating task: %v", err)
+		}
+	}
+	if _, err := clientStreaming.CloseAndRecv(); err != nil { //tells the server that streaming is done and awaits rs
+		log.Fatalf("error closing send: %v", err)
 	}
 }

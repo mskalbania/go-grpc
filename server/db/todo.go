@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"server/model"
 	"time"
 )
@@ -10,6 +11,7 @@ type TodoDB interface {
 	//GetTasks interface itself is not coupled to any iterator, loop, cursor implementation,
 	// a user provided f function should be called on all tasks that were obtained
 	GetTasks(applyOnEachRow func(item model.Task) error) error
+	UpdateTask(id model.ID, description string, dueDate time.Time, done bool) error
 }
 
 func NewTodoDB() TodoDB {
@@ -18,6 +20,16 @@ func NewTodoDB() TodoDB {
 
 type inMemoryTodoDB struct {
 	data map[model.ID]model.Task
+}
+
+func (i *inMemoryTodoDB) UpdateTask(id model.ID, description string, dueDate time.Time, done bool) error {
+	if task, ok := i.data[id]; ok {
+		task.Description = description
+		task.DueDate = dueDate
+		task.Done = done
+		return nil
+	}
+	return fmt.Errorf("task not found")
 }
 
 func (i *inMemoryTodoDB) AddTask(description string, dueDate time.Time) model.ID {
