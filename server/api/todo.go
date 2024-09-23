@@ -67,3 +67,27 @@ func (t *TodoAPI) UpdateTask(server grpc.ClientStreamingServer[todo.UpdateTaskRe
 		log.Printf("updated task with id: %d, description: %s, dueDate: %s, done: %v", rq.Task.Id, rq.Task.Description, rq.Task.DueDate.AsTime().String(), rq.Task.Done)
 	}
 }
+
+func (t *TodoAPI) DeleteTask(server grpc.BidiStreamingServer[todo.DeleteTaskRequest, todo.DeleteTaskResponse]) error {
+	for {
+		rq, err := server.Recv()
+		if err == io.EOF {
+			log.Println("client done")
+			return nil
+		}
+		if err != nil {
+			log.Printf("stream closed unexpectedly: %v", err)
+			return err
+		}
+		err = t.db.DeleteTask(model.ID(rq.Id))
+		if err != nil {
+			log.Printf("error deleting task: %v", err)
+			return status.Error(codes.Internal, "error deleting task")
+		}
+		log.Printf("deleted task with id: %d", rq.Id)
+		err = server.Send(&todo.DeleteTaskResponse{})
+		if err != nil {
+			return err
+		}
+	}
+}

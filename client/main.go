@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"proto/gen/todo"
+	"sync"
 	"time"
 )
 
@@ -34,7 +35,7 @@ func main() {
 	todoClient := todo.NewTodoServiceClient(conn)
 
 	//3a. Call server - unary API example
-	for i := 1; i < 3; i++ {
+	for i := 1; i < 4; i++ {
 		rs, err := todoClient.AddTask(context.Background(), &todo.AddTaskRequest{
 			Description: fmt.Sprintf("do smth %v", i),
 			DueDate:     timestamppb.New(time.Now().Add(time.Hour * 24)),
@@ -85,4 +86,34 @@ func main() {
 	if _, err := clientStreaming.CloseAndRecv(); err != nil { //tells the server that streaming is done and awaits rs
 		log.Fatalf("error closing send: %v", err)
 	}
+
+	//3d. Call server - bi-directional streaming API example
+	biDirStreaming, err := todoClient.DeleteTask(context.Background())
+	if err != nil {
+		log.Fatalf("error deleting tasks: %v", err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() { //feedback loop part, listens for server confirmations
+		for {
+			_, err := biDirStreaming.Recv()
+			if err == io.EOF { //server done
+				wg.Done()
+				break
+			}
+			if err != nil {
+				log.Fatalf("error deleting task %v", err)
+			}
+			log.Printf("deleted task confirmation")
+		}
+	}()
+	for _, id := range ids {
+		if err := biDirStreaming.Send(&todo.DeleteTaskRequest{Id: id}); err != nil {
+			log.Fatalf("error deleting task: %v", err)
+		}
+	}
+	if err := biDirStreaming.CloseSend(); err != nil { //send half close
+		log.Fatalf("error closing send: %v", err)
+	}
+	wg.Wait()
 }

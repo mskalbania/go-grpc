@@ -12,6 +12,7 @@ type TodoDB interface {
 	// a user provided f function should be called on all tasks that were obtained
 	GetTasks(applyOnEachRow func(item model.Task) error) error
 	UpdateTask(id model.ID, description string, dueDate time.Time, done bool) error
+	DeleteTask(id model.ID) error
 }
 
 func NewTodoDB() TodoDB {
@@ -20,6 +21,14 @@ func NewTodoDB() TodoDB {
 
 type inMemoryTodoDB struct {
 	data map[model.ID]model.Task
+}
+
+func (i *inMemoryTodoDB) DeleteTask(id model.ID) error {
+	if _, ok := i.data[id]; ok {
+		delete(i.data, id)
+		return nil
+	}
+	return fmt.Errorf("task not found")
 }
 
 func (i *inMemoryTodoDB) UpdateTask(id model.ID, description string, dueDate time.Time, done bool) error {
