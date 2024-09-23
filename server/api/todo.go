@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"io"
 	"log"
 	"proto/gen/todo"
@@ -30,11 +31,11 @@ func (t *TodoAPI) AddTask(_ context.Context, rq *todo.AddTaskRequest) (*todo.Add
 	}, nil
 }
 
-func (t *TodoAPI) ListTasks(_ *todo.ListTasksRequest, server grpc.ServerStreamingServer[todo.ListTasksResponse]) error {
+func (t *TodoAPI) ListTasks(rq *todo.ListTasksRequest, server grpc.ServerStreamingServer[todo.ListTasksResponse]) error {
 	err := t.db.GetTasks(func(task model.Task) error {
 		overdue := task.Done == false && time.Now().UTC().After(task.DueDate)
 		if err := server.Send(&todo.ListTasksResponse{
-			Task:    task.ToProto(),
+			Task:    filter(rq.GetMask(), task).ToProto(),
 			Overdue: overdue,
 		}); err != nil {
 			return err
@@ -48,6 +49,22 @@ func (t *TodoAPI) ListTasks(_ *todo.ListTasksRequest, server grpc.ServerStreamin
 	return nil
 }
 
+func filter(mask *fieldmaskpb.FieldMask, task model.Task) model.Task {
+	if mask == nil {
+		return task
+	}
+	maskedTask := model.Task{}
+	for _, path := range mask.Paths {
+		switch path {
+		case "id":
+			maskedTask.ID = task.ID
+		case "description":
+			maskedTask.Description = task.Description
+		}
+	}
+	return maskedTask
+}
+
 func (t *TodoAPI) UpdateTask(server grpc.ClientStreamingServer[todo.UpdateTaskRequest, todo.UpdateTaskResponse]) error {
 	for { //now inf loop on server end to consume the client stream
 		rq, err := server.Recv()
@@ -59,12 +76,12 @@ func (t *TodoAPI) UpdateTask(server grpc.ClientStreamingServer[todo.UpdateTaskRe
 			log.Printf("stream closed unexpectedly: %v", err)
 			return err
 		}
-		err = t.db.UpdateTask(model.ID(rq.Task.Id), rq.Task.Description, rq.Task.DueDate.AsTime(), rq.Task.Done)
+		err = t.db.UpdateTask(model.ID(rq.Id), rq.Description, rq.DueDate.AsTime(), rq.Done)
 		if err != nil {
 			log.Printf("error updating task: %v", err)
 			return status.Error(codes.Internal, "error updating task")
 		}
-		log.Printf("updated task with id: %d, description: %s, dueDate: %s, done: %v", rq.Task.Id, rq.Task.Description, rq.Task.DueDate.AsTime().String(), rq.Task.Done)
+		log.Printf("updated task with id: %d, description: %s, dueDate: %s, done: %v", rq.Id, rq.Description, rq.DueDate.AsTime().String(), rq.Done)
 	}
 }
 

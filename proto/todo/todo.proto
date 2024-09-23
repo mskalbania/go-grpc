@@ -2,6 +2,7 @@ syntax = "proto3";
 option go_package = "./todo";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
 
 //messages land in *.pb.go as structs
 message Task {
@@ -20,15 +21,27 @@ message AddTaskResponse {
   uint64 id = 1;
 }
 
-message ListTasksRequest{}
+//using mask to control what fields to return
+message ListTasksRequest{
+  google.protobuf.FieldMask mask = 1;
+}
 
 message ListTasksResponse {
   Task task = 1;
   bool overdue = 2;
 }
 
+//This is sub-optimal, serializing custom defined type comes at cost
+//message UpdateTaskRequest {
+//  Task task = 1;
+//}
+
+//This is a preferred way even though there is some duplication
 message UpdateTaskRequest {
-  Task task = 1;
+  uint64 id = 1;
+  string description = 2;
+  bool done = 3;
+  google.protobuf.Timestamp due_date = 4;
 }
 
 message UpdateTaskResponse {}

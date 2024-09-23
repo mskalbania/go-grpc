@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"log"
@@ -48,7 +49,11 @@ func main() {
 
 	//3b. Call sever - server streaming API example
 	var ids []uint64
-	serverStreaming, err := todoClient.ListTasks(context.Background(), &todo.ListTasksRequest{})
+	mask, err := fieldmaskpb.New(&todo.Task{}, "id") //this check if paths exists in Task proto
+	if err != nil {
+		log.Fatalf("error creating mask: %v", err)
+	}
+	serverStreaming, err := todoClient.ListTasks(context.Background(), &todo.ListTasksRequest{Mask: mask})
 	if err != nil {
 		log.Fatalf("error getting tasks: %v", err)
 	}
@@ -72,12 +77,10 @@ func main() {
 	}
 	for _, id := range ids[1:] {
 		err := clientStreaming.Send(&todo.UpdateTaskRequest{
-			Task: &todo.Task{
-				Id:          id,
-				Description: "updated!!",
-				Done:        true,
-				DueDate:     timestamppb.New(time.Now()),
-			},
+			Id:          id,
+			Description: "updated!!",
+			Done:        true,
+			DueDate:     timestamppb.New(time.Now()),
 		})
 		if err != nil {
 			log.Fatalf("error updating task: %v", err)
