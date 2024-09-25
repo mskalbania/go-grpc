@@ -38,8 +38,11 @@ func main() {
 	todoClient := todo.NewTodoServiceClient(conn)
 
 	//3a. Call server - unary API example
+	//google advises to use timeouts for every grpc call
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
 	for i := 1; i < 4; i++ {
-		rs, err := todoClient.AddTask(context.Background(), &todo.AddTaskRequest{
+		rs, err := todoClient.AddTask(ctx, &todo.AddTaskRequest{
 			Description: fmt.Sprintf("do smth %v", i),
 			DueDate:     timestamppb.New(time.Now().Add(-time.Hour * 24)),
 		})
