@@ -7,7 +7,7 @@ import (
 )
 
 type TodoDB interface {
-	AddTask(description string, dueDate time.Time) model.ID
+	AddTask(description string, dueDate time.Time) (model.ID, error)
 	//GetTasks interface itself is not coupled to any iterator, loop, cursor implementation,
 	// a user provided f function should be called on all tasks that were obtained
 	GetTasks(applyOnEachRow func(item model.Task) error) error
@@ -41,7 +41,7 @@ func (i *inMemoryTodoDB) UpdateTask(id model.ID, description string, dueDate tim
 	return fmt.Errorf("task not found")
 }
 
-func (i *inMemoryTodoDB) AddTask(description string, dueDate time.Time) model.ID {
+func (i *inMemoryTodoDB) AddTask(description string, dueDate time.Time) (model.ID, error) {
 	id := model.ID(time.Now().UnixNano())
 	i.data[id] = model.Task{
 		ID:          id,
@@ -49,7 +49,7 @@ func (i *inMemoryTodoDB) AddTask(description string, dueDate time.Time) model.ID
 		DueDate:     dueDate,
 		Done:        false,
 	}
-	return id
+	return id, nil
 }
 
 // GetTasks now the implementation for the in memory db - we just call f on every item from the map,

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
@@ -39,9 +41,16 @@ func main() {
 	for i := 1; i < 4; i++ {
 		rs, err := todoClient.AddTask(context.Background(), &todo.AddTaskRequest{
 			Description: fmt.Sprintf("do smth %v", i),
-			DueDate:     timestamppb.New(time.Now().Add(time.Hour * 24)),
+			DueDate:     timestamppb.New(time.Now().Add(-time.Hour * 24)),
 		})
 		if err != nil {
+			if s, ok := status.FromError(err); ok { //and here we can convert error back to status
+				switch s.Code() {
+				case codes.InvalidArgument:
+					log.Fatalf("invalid argument: %v", s.Message())
+				}
+			}
+
 			log.Fatalf("error adding task: %v", err)
 		}
 		log.Printf("added task with id: %d", rs.Id)

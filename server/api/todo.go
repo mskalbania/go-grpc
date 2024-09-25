@@ -24,11 +24,29 @@ func NewTodoAPI(db db.TodoDB) *TodoAPI {
 }
 
 func (t *TodoAPI) AddTask(_ context.Context, rq *todo.AddTaskRequest) (*todo.AddTaskResponse, error) {
-	id := t.db.AddTask(rq.Description, rq.DueDate.AsTime())
+	if err := validateTask(rq); err != nil {
+		return nil, err
+	}
+	id, err := t.db.AddTask(rq.Description, rq.DueDate.AsTime())
+	// example of unexpected error - the code for such cases is Internal
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unexpected error: %v", err)
+	}
 	log.Printf("added task with: id: %d, description: %s, dueDate: %s", id, rq.Description, rq.DueDate.AsTime().String())
 	return &todo.AddTaskResponse{
 		Id: uint64(id),
 	}, nil
+}
+
+// example of validation errors - the code for such cases is InvalidArgument
+func validateTask(rq *todo.AddTaskRequest) error {
+	if rq.Description == "" {
+		return status.Error(codes.InvalidArgument, "description is required")
+	}
+	if rq.DueDate == nil {
+		return status.Error(codes.InvalidArgument, "due date is required")
+	}
+	return nil
 }
 
 func (t *TodoAPI) ListTasks(rq *todo.ListTasksRequest, server grpc.ServerStreamingServer[todo.ListTasksResponse]) error {
