@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"io"
@@ -23,7 +25,9 @@ func NewTodoAPI(db db.TodoDB) *TodoAPI {
 	return &TodoAPI{db: db}
 }
 
-func (t *TodoAPI) AddTask(_ context.Context, rq *todo.AddTaskRequest) (*todo.AddTaskResponse, error) {
+func (t *TodoAPI) AddTask(ctx context.Context, rq *todo.AddTaskRequest) (*todo.AddTaskResponse, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	fmt.Printf("MD: %v", md)
 	if err := validateTask(rq); err != nil {
 		return nil, err
 	}
