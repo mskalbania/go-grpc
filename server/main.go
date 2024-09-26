@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	_ "google.golang.org/grpc/encoding/gzip"
 	"log"
 	"net"
 	"os"
@@ -29,6 +31,14 @@ func main() {
 	var opts []grpc.ServerOption
 	//some no-op interceptor, could be access token validation here
 	opts = append(opts, grpc.UnaryInterceptor(someInterceptor))
+
+	//enabling TLS
+	//left - public certificate presented during handshake, right - private key associated with cert public key
+	cr, err := credentials.NewServerTLSFromFile("server_cert.pem", "server_key.pem")
+	if err != nil {
+		log.Fatalf("failed to create credentials: %v", err)
+	}
+	opts = append(opts, grpc.Creds(cr))
 	server := grpc.NewServer(opts...)
 	defer server.Stop()
 
