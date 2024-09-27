@@ -28,8 +28,8 @@ func NewTodoAPI(db db.TodoDB) *TodoAPI {
 func (t *TodoAPI) AddTask(ctx context.Context, rq *todo.AddTaskRequest) (*todo.AddTaskResponse, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	fmt.Printf("MD: %v", md)
-	if err := validateTask(rq); err != nil {
-		return nil, err
+	if err := rq.Validate(); err != nil { //using grpc-validator
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 	id, err := t.db.AddTask(rq.Description, rq.DueDate.AsTime())
 	// example of unexpected error - the code for such cases is Internal

@@ -3,6 +3,7 @@ option go_package = "./todo";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
+import "validate/validate.proto";
 
 //messages land in *.pb.go as structs
 message Task {
@@ -13,8 +14,13 @@ message Task {
 }
 
 message AddTaskRequest {
-  string description = 1;
-  google.protobuf.Timestamp due_date = 2;
+  string description = 1[
+    (validate.rules).string.min_len = 1,
+    (validate.rules).string.max_len = 100
+  ];
+  google.protobuf.Timestamp due_date = 2[
+    (validate.rules).timestamp.gt_now = true
+  ];
 }
 
 message AddTaskResponse {
