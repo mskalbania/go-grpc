@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"net"
 	"os"
@@ -30,7 +32,10 @@ func main() {
 	//2. Create a new grpc server
 	var opts []grpc.ServerOption
 	//some no-op interceptor, could be access token validation here
-	opts = append(opts, grpc.UnaryInterceptor(someInterceptor))
+	//opts = append(opts, grpc.UnaryInterceptor(someInterceptor)) //can't set multiple interceptors
+
+	//auth interceptor using grpc-middleware package
+	opts = append(opts, grpc.UnaryInterceptor(auth.UnaryServerInterceptor(authInterceptor)))
 
 	//enabling TLS
 	//left - public certificate presented during handshake, right - private key associated with cert public key
@@ -39,6 +44,7 @@ func main() {
 		log.Fatalf("failed to create credentials: %v", err)
 	}
 	opts = append(opts, grpc.Creds(cr))
+
 	server := grpc.NewServer(opts...)
 	defer server.Stop()
 
@@ -65,4 +71,12 @@ func main() {
 
 func someInterceptor(ctx context.Context, rq any, i *grpc.UnaryServerInfo, h grpc.UnaryHandler) (resp any, err error) {
 	return h(ctx, rq)
+}
+
+func authInterceptor(ctx context.Context) (context.Context, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	token := md.Get("authorization")[0]
+	////auth logic here
+	ctx = context.WithValue(ctx, "token", token)
+	return ctx, nil
 }

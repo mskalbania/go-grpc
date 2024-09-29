@@ -147,6 +147,6 @@ func main() {
 }
 
 func clientSideInterceptor(ctx context.Context, method string, req any, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	ctx = metadata.AppendToOutgoingContext(ctx, "interceptor", "value")
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "tk-tk")
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
