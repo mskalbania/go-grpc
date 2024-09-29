@@ -27,8 +27,8 @@ func NewTodoAPI(db db.TodoDB) *TodoAPI {
 
 func (t *TodoAPI) AddTask(ctx context.Context, rq *todo.AddTaskRequest) (*todo.AddTaskResponse, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
-	fmt.Printf("MD: %v", md)
-	fmt.Printf("token: %v", ctx.Value("token")) //populated by auth middleware
+	fmt.Printf("MD: %v\n", md)
+	fmt.Printf("token: %v\n", ctx.Value("token")) //populated by auth middleware
 
 	if err := rq.Validate(); err != nil { //using grpc-validator
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -14,6 +15,7 @@ import (
 	"proto/gen/todo"
 	"server/api"
 	"server/db"
+	"strings"
 	"syscall"
 )
 
@@ -35,7 +37,10 @@ func main() {
 	//opts = append(opts, grpc.UnaryInterceptor(someInterceptor)) //can't set multiple interceptors
 
 	//auth interceptor using grpc-middleware package
-	opts = append(opts, grpc.UnaryInterceptor(auth.UnaryServerInterceptor(authInterceptor)))
+	opts = append(opts, grpc.ChainUnaryInterceptor(
+		logging.UnaryServerInterceptor(l(), logging.WithLogOnEvents(logging.FinishCall)),
+		auth.UnaryServerInterceptor(authInterceptor),
+	))
 
 	//enabling TLS
 	//left - public certificate presented during handshake, right - private key associated with cert public key
@@ -79,4 +84,16 @@ func authInterceptor(ctx context.Context) (context.Context, error) {
 	////auth logic here
 	ctx = context.WithValue(ctx, "token", token)
 	return ctx, nil
+}
+
+func l() logging.LoggerFunc {
+	return func(ctx context.Context, level logging.Level, msg string, fields ...any) {
+		f := make(map[string]string, len(fields)/2)
+		i := logging.Fields(fields).Iterator()
+		for i.Next() {
+			k, v := i.At()
+			f[k] = v.(string)
+		}
+		log.Printf("%s/%s | %s | %s | Message: %s", f["grpc.service"], f["grpc.method"], f["grpc.code"], f["grpc.time_ms"], strings.SplitAfter(f["grpc.error"], "desc = ")[1])
+	}
 }
