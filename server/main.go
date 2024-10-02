@@ -17,6 +17,7 @@ import (
 	"server/db"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -24,12 +25,47 @@ func main() {
 	if listenAddr == "" {
 		log.Fatalf("LISTEN_ADDR not set")
 	}
+
+	grpcServer, listen := configureGrpcServer(listenAddr)
+
+	go func() {
+		if err := grpcServer.Serve(listen); err != nil {
+			log.Fatalf("error serving: %v", err)
+		}
+	}()
+
+	//5. Graceful shutdown
+	shutDown := make(chan os.Signal, 1)
+	signal.Notify(shutDown, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case <-shutDown:
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		done := make(chan interface{})
+
+		go func() {
+			grpcServer.GracefulStop()
+			log.Println("grpc server stopped")
+			done <- true
+		}()
+		select { //either stopped or timout
+		case <-ctx.Done():
+			log.Println("timeout waiting for servers to stop")
+		case <-done:
+		}
+	}
+}
+
+func someInterceptor(ctx context.Context, rq any, i *grpc.UnaryServerInfo, h grpc.UnaryHandler) (resp any, err error) {
+	return h(ctx, rq)
+}
+
+func configureGrpcServer(listenAddr string) (*grpc.Server, net.Listener) {
 	//1. Create a listener on the specified address
 	listen, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		log.Fatalf("error listenting: %v", err)
 	}
-	defer listen.Close()
 
 	//2. Create a new grpc server
 	var opts []grpc.ServerOption
@@ -51,31 +87,11 @@ func main() {
 	opts = append(opts, grpc.Creds(cr))
 
 	server := grpc.NewServer(opts...)
-	defer server.Stop()
 
 	//3. server.RegisterService() register implemented services here
 	todoAPI := api.NewTodoAPI(db.NewTodoDB())
 	todo.RegisterTodoServiceServer(server, todoAPI)
-
-	//4. Start the server (different goroutine to register shutdown hook below)
-	go func() {
-		if err := server.Serve(listen); err != nil {
-			log.Fatalf("error serving: %v", err)
-		}
-	}()
-
-	//5. Graceful shutdown
-	shutDown := make(chan os.Signal, 1)
-	signal.Notify(shutDown, syscall.SIGINT, syscall.SIGTERM)
-	select {
-	case <-shutDown:
-		log.Println("shutting down server")
-		server.GracefulStop()
-	}
-}
-
-func someInterceptor(ctx context.Context, rq any, i *grpc.UnaryServerInfo, h grpc.UnaryHandler) (resp any, err error) {
-	return h(ctx, rq)
+	return server, listen
 }
 
 func authInterceptor(ctx context.Context) (context.Context, error) {

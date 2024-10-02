@@ -57,7 +57,7 @@ func main() {
 	for i := 1; i < 4; i++ {
 		rs, err := todoClient.AddTask(ctx, &todo.AddTaskRequest{
 			Description: fmt.Sprintf("do smth %v", i),
-			DueDate:     timestamppb.New(time.Now().Add(-time.Hour * 24)),
+			DueDate:     timestamppb.New(time.Now().Add(time.Hour * 24)),
 		}, grpc.UseCompressor(gzip.Name)) //use gzip compression for this call
 		if err != nil {
 			if s, ok := status.FromError(err); ok { //and here we can convert error back to status
