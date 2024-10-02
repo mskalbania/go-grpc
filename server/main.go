@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/ratelimit"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -76,8 +75,8 @@ func configureGrpcServer(listenAddr string) (*grpc.Server, net.Listener) {
 
 	//auth interceptor using grpc-middleware package
 	opts = append(opts, grpc.ChainUnaryInterceptor(
-		ratelimit.UnaryServerInterceptor(&simpleRateLimiter{counter: rate.NewLimiter(1, 2)}),
 		logging.UnaryServerInterceptor(l(), logging.WithLogOnEvents(logging.FinishCall)),
+		//ratelimit.UnaryServerInterceptor(&simpleRateLimiter{counter: rate.NewLimiter(10, 2)}),
 		auth.UnaryServerInterceptor(authInterceptor),
 	))
 

@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
+	_ "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -34,9 +36,16 @@ func main() {
 	}
 
 	connOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(cr),                //this will use TLS now
-		grpc.WithUnaryInterceptor(clientSideInterceptor), //register client side interceptor
+		grpc.WithTransportCredentials(cr), //this will use TLS now
 		//grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)), //use gzip compression for all calls
+		grpc.WithChainUnaryInterceptor( // register client side interceptor chain
+			clientSideInterceptor,
+			retry.UnaryClientInterceptor(
+				retry.WithMax(10),
+				retry.WithBackoff(retry.BackoffExponential(30*time.Millisecond)),
+				retry.WithCodes(codes.Internal, codes.Unavailable),
+			),
+		),
 	}
 	conn, err := grpc.NewClient(addr, connOpts...)
 	if err != nil {

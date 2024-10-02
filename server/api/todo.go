@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"io"
 	"log"
+	"math/rand"
 	"proto/gen/todo"
 	"server/db"
 	"server/model"
@@ -26,6 +27,11 @@ func NewTodoAPI(db db.TodoDB) *TodoAPI {
 }
 
 func (t *TodoAPI) AddTask(ctx context.Context, rq *todo.AddTaskRequest) (*todo.AddTaskResponse, error) {
+	//random err to trigger retries
+	randBool := rand.Intn(2) == 1
+	if randBool {
+		return nil, status.Error(codes.Internal, "random error")
+	}
 	md, _ := metadata.FromIncomingContext(ctx)
 	fmt.Printf("MD: %v\n", md)
 	fmt.Printf("token: %v\n", ctx.Value("token")) //populated by auth middleware
