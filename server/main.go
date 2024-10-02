@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/ratelimit"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -15,7 +18,6 @@ import (
 	"proto/gen/todo"
 	"server/api"
 	"server/db"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -74,6 +76,7 @@ func configureGrpcServer(listenAddr string) (*grpc.Server, net.Listener) {
 
 	//auth interceptor using grpc-middleware package
 	opts = append(opts, grpc.ChainUnaryInterceptor(
+		ratelimit.UnaryServerInterceptor(&simpleRateLimiter{counter: rate.NewLimiter(1, 2)}),
 		logging.UnaryServerInterceptor(l(), logging.WithLogOnEvents(logging.FinishCall)),
 		auth.UnaryServerInterceptor(authInterceptor),
 	))
@@ -110,6 +113,17 @@ func l() logging.LoggerFunc {
 			k, v := i.At()
 			f[k] = v.(string)
 		}
-		log.Printf("%s/%s | %s | %s | Message: %s", f["grpc.service"], f["grpc.method"], f["grpc.code"], f["grpc.time_ms"], strings.SplitAfter(f["grpc.error"], "desc = ")[1])
+		log.Printf("%s/%s | %s | %s", f["grpc.service"], f["grpc.method"], f["grpc.code"], f["grpc.time_ms"])
 	}
+}
+
+type simpleRateLimiter struct {
+	counter *rate.Limiter
+}
+
+func (c *simpleRateLimiter) Limit(_ context.Context) error {
+	if !c.counter.Allow() {
+		return fmt.Errorf("reached limit - %v", c.counter.Limit())
+	}
+	return nil
 }
